@@ -26,26 +26,48 @@ Rusic allows you to scan your local directories for audio files, or you jellyfin
 
 ### NixOS / Nix
 
-Run directly without installing:
+**Run directly without installing:**
 
 ```bash
 nix run github:temidaradev/rusic
 ```
 
-Install to your profile:
+**Install to your profile:**
 
 ```bash
 nix profile add github:temidaradev/rusic
 ```
 
-Or add to your NixOS flake inputs:
+**NixOS flake (recommended — installs as a proper system app with icon & `.desktop` entry):**
+
+Add rusic to your `flake.nix` inputs:
 
 ```nix
-# flake.nix
-{
-  inputs.rusic.url = "github:temidaradev/rusic";
-}
+inputs.rusic.url = "github:temidaradev/rusic";
 ```
+
+Pass it through to your system config and add the Cachix substituter so it downloads the pre-built binary instead of compiling:
+
+```nix
+# nixos/nix/default.nix
+nix.settings = {
+  substituters      = [ "https://cache.nixos.org" "https://rusic.cachix.org" ];
+  trusted-public-keys = [
+    "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
+    "rusic.cachix.org-1:WXMpGpamblLUiJtcoxBxGGGGwIcWxGPJBUxarLiqWmw="
+  ];
+};
+```
+
+Then install the package:
+
+```nix
+# configuration.nix / machine.nix
+environment.systemPackages = [
+  rusic.packages.${system}.default
+];
+```
+
 
 ### Flatpak (Recommended)
 
