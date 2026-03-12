@@ -90,8 +90,11 @@ CODESIGN_EOF
       install -Dm644 rusic/assets/logo.png \
         $out/share/icons/hicolor/256x256/apps/com.temidaradev.rusic.png
     '' else ''
-      cp -r target/dx/rusic/release/macos/app/rusic.app $out/bin/rusic.app
-      ln -s $out/bin/rusic.app/Contents/MacOS/rusic $out/bin/rusic
+      # Dioxus outputs the bundle at macos/Rusic.app (capitalised, no app/ subdir)
+      cp -r target/dx/rusic/release/macos/Rusic.app $out/bin/rusic.app
+      # Symlink whatever binary dioxus placed in MacOS/ (name may differ in case)
+      macBin=$(find $out/bin/rusic.app/Contents/MacOS -maxdepth 1 -type f | head -1)
+      ln -s "$macBin" $out/bin/rusic
     ''}
 
     runHook postInstall
