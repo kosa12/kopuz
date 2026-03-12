@@ -13,6 +13,7 @@ const FAVICON: Asset = asset!("../assets/favicon.ico");
 const MAIN_CSS: Asset = asset!("../assets/main.css");
 const THEME_CSS: Asset = asset!("../assets/themes.css");
 const TAILWIND_CSS: Asset = asset!("../assets/tailwind.css");
+const REDUCED_ANIMATIONS_CSS: Asset = asset!("../assets/reduced-animations.css");
 
 static PRESENCE: std::sync::OnceLock<Option<Arc<Presence>>> = std::sync::OnceLock::new();
 
@@ -302,10 +303,12 @@ fn App() -> Element {
         document::Link { rel: "stylesheet", href: MAIN_CSS }
         document::Link { rel: "stylesheet", href: THEME_CSS }
         document::Link { rel: "stylesheet", href: TAILWIND_CSS }
+        document::Link { rel: "stylesheet", href: REDUCED_ANIMATIONS_CSS }
         document::Link { rel: "stylesheet", href: "https://fonts.bunny.net/css?family=jetbrains-mono:400,500,700,800&display=swap" }
         document::Link { rel: "stylesheet", href: "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" }
         div {
             class: "flex flex-col h-screen bg-black text-white theme-{config.read().theme}",
+            "data-reduce-animations": "{config.read().reduce_animations}",
             tabindex: "0",
             autofocus: true,
             onkeydown: move |evt| {

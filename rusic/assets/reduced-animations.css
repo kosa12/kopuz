@@ -1,0 +1,23 @@
+/*
+ * Reduced animations styles
+ * Disables transitions, animations, and smooth scrolling for better performance
+ * and for users who prefer reduced motion.
+ */
+
+/* Target everything when the reduced animations attribute is set */
+[data-reduce-animations="true"],
+[data-reduce-animations="true"] *,
+[data-reduce-animations="true"] *::before,
+[data-reduce-animations="true"] *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    transition-delay: 0s !important;
+    scroll-behavior: auto !important;
+    transform: none !important;
+}
+
+/* Ensure progress bars and seek sliders still work without animation delays */
+[data-reduce-animations="true"] input[type="range"] {
+    transition: none !important;
+}
