@@ -1,4 +1,5 @@
 use config::AppConfig;
+use dioxus::document::eval;
 use dioxus::prelude::*;
 use hooks::use_player_controller::{LoopMode, PlayerController};
 use player::player::Player;
@@ -21,6 +22,7 @@ pub fn Fullscreen(
     mut current_song_cover_url: Signal<String>,
     mut current_song_album: Signal<String>,
     mut volume: Signal<f32>,
+    palette: Signal<Option<Vec<utils::color::Color>>>,
 ) -> Element {
     if !*is_fullscreen.read() {
         return rsx! { div {} };
@@ -28,6 +30,14 @@ pub fn Fullscreen(
 
     let mut active_tab = use_signal(|| 1usize);
     let mut ctrl = use_context::<PlayerController>();
+    let mut exact_progress = use_signal(|| 0.0_f64);
+
+    use_future(move || async move {
+        loop {
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+            exact_progress.set(player.peek().get_position().as_secs_f64());
+        }
+    });
 
     let format_time = |seconds: u64| {
         let minutes = seconds / 60;
@@ -48,6 +58,56 @@ pub fn Fullscreen(
     };
 
     let config = use_context::<Signal<AppConfig>>();
+
+    let lyrics = use_resource(move || {
+        let title = current_song_title.read().clone();
+        let artist = current_song_artist.read().clone();
+        let album = current_song_album.read().clone();
+        let duration = *current_song_duration.read();
+
+        async move {
+            if !title.is_empty() {
+                if let Some(l) =
+                    utils::lyrics::fetch_lyrics(&artist, &title, &album, duration).await
+                {
+                    Some(l)
+                } else {
+                    Some(utils::lyrics::Lyrics::Plain("Lyrics not found".to_string()))
+                }
+            } else {
+                None
+            }
+        }
+    });
+
+    let active_lyric_index = use_memo(move || {
+        if *active_tab.read() == 2 {
+            if let Some(Some(utils::lyrics::Lyrics::Synced(lines))) = &*lyrics.read() {
+                let current_time = *exact_progress.read();
+                return lines
+                    .iter()
+                    .rposition(|l| l.start_time <= current_time)
+                    .unwrap_or(0);
+            }
+        }
+        0
+    });
+
+    use_effect(move || {
+        let _idx = active_lyric_index();
+        if *active_tab.read() == 2 {
+            let _ = eval(
+                r#"
+                setTimeout(() => {
+                    let el = document.getElementById('active-lyric');
+                    if (el) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }, 50);
+                "#,
+            );
+        }
+    });
 
     let get_track_cover = |track: &reader::Track| -> Option<String> {
         let lib = library.read();
@@ -86,18 +146,24 @@ pub fn Fullscreen(
         }
     };
 
+    let background_style = if config.read().theme == "album-art" {
+        utils::color::get_background_style(palette.read().as_deref())
+    } else {
+        "background-color: var(--color-black); background-image: none;".to_string()
+    };
+
     rsx! {
         div {
             class: "fixed inset-0 z-50 flex text-white select-none",
-            style: "background-color: var(--color-black);",
+            style: "{background_style}",
 
             div {
-                class: "flex flex-col items-center justify-center p-8",
-                style: "width: 50%; max-width: 520px;",
+                class: "flex flex-col items-center justify-center p-8 lg:p-12 relative flex-shrink-0",
+                style: "width: 50%; max-width: 600px;",
 
                 div {
-                    class: "rounded-lg overflow-hidden shadow-2xl mb-6",
-                    style: "width: 280px; height: 280px;",
+                    class: "rounded-2xl overflow-hidden mb-8 shadow-2xl",
+                    style: "width: 100%; max-width: 420px; aspect-ratio: 1/1;",
                     if current_song_cover_url.read().is_empty() {
                         div {
                             class: "w-full h-full flex items-center justify-center bg-black/30",
@@ -112,8 +178,26 @@ pub fn Fullscreen(
                 }
 
                 div {
-                    class: "w-full mb-4",
-                    style: "max-width: 340px;",
+                    class: "flex flex-col items-start w-full mb-2",
+                    style: "max-width: 420px;",
+                    h1 { class: "text-3xl font-bold text-white mb-2 line-clamp-1", "{current_song_title}" }
+                    div {
+                        class: "flex items-center gap-2",
+                        h2 { class: "text-xl text-white/70 font-medium line-clamp-1", "{current_song_artist}" }
+                        span { class: "text-white/30", "•" }
+                        h3 { class: "text-lg text-white/50 line-clamp-1", "{current_song_album}" }
+                    }
+                }
+
+                div {
+                    class: "flex items-center gap-4 text-xs text-white/50 mb-6 w-full",
+                    style: "max-width: 420px;",
+                    span { style: "font-size: 10px;", "{current_song_khz} / {current_song_bitrate}" }
+                }
+
+                div {
+                    class: "w-full mb-6",
+                    style: "max-width: 420px;",
                     div {
                         class: "flex items-center gap-3",
                         span { class: "text-xs text-white/70 font-mono", style: "width: 50px; text-align: left;", "{format_time(*current_song_progress.read())}" }
@@ -129,7 +213,7 @@ pub fn Fullscreen(
                                 style: "height: 4px; top: 8px; left: 0; width: {progress_percent}%; background: linear-gradient(to right, #5a9a9a, #ffffff);"
                             }
                             div {
-                                class: "absolute bg-white rounded-full shadow-lg pointer-events-none",
+                                class: "absolute bg-white rounded-full pointer-events-none",
                                 style: "width: 12px; height: 12px; top: 4px; left: calc({progress_percent}% - 6px);"
                             }
                             input {
@@ -151,45 +235,37 @@ pub fn Fullscreen(
                 }
 
                 div {
-                    class: "text-center mb-3",
-                    h2 { class: "text-base font-medium text-white", "{current_song_artist}" }
-                    h1 { class: "text-lg font-bold text-white", "{current_song_title}" }
-                    h3 { class: "text-sm text-white/50", "{current_song_album}" }
-                }
-
-                div {
-                    class: "flex items-center justify-center gap-4 text-xs text-white/50 mb-4",
-                    span { style: "font-size: 10px;", "{current_song_khz} / {current_song_bitrate}" }
-                }
-
-                div {
-                    class: "flex items-center justify-center gap-8 mb-6 w-full px-10",
+                    class: "flex items-center justify-between w-full mb-8",
+                    style: "max-width: 420px;",
                     button {
                         class: format!("{} transition-all active:scale-95 relative flex-shrink-0", if *ctrl.shuffle.read() { "text-white" } else { "text-white/50 hover:text-white" }),
                         onclick: move |_| ctrl.toggle_shuffle(),
                         title: if *ctrl.shuffle.read() { "Shuffle: On" } else { "Shuffle: Off" },
-                        i { class: "fa-solid fa-shuffle text-sm" }
+                        i { class: "fa-solid fa-shuffle text-lg" }
                     }
-                    button {
-                        class: "text-white hover:text-white/80 transition-colors flex-shrink-0",
-                        onclick: move |_| {
-                            ctrl.play_prev();
-                        },
-                        i { class: "fa-solid fa-backward-step text-2xl" }
-                    }
-                    button {
-                        class: "w-16 h-16 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-all flex-shrink-0 mx-2",
-                        onclick: move |_| {
-                            ctrl.toggle();
-                        },
-                        i { class: if *is_playing.read() { "fa-solid fa-pause text-2xl" } else { "fa-solid fa-play text-2xl ml-1" } }
-                    }
-                    button {
-                        class: "text-white hover:text-white/80 transition-colors flex-shrink-0",
-                        onclick: move |_| {
-                            ctrl.play_next();
-                        },
-                        i { class: "fa-solid fa-forward-step text-2xl" }
+                    div {
+                        class: "flex items-center gap-8",
+                        button {
+                            class: "text-white hover:text-white/80 transition-colors flex-shrink-0",
+                            onclick: move |_| {
+                                ctrl.play_prev();
+                            },
+                            i { class: "fa-solid fa-backward-step text-3xl" }
+                        }
+                        button {
+                            class: "w-20 h-20 bg-white text-black hover:bg-white/90 rounded-full flex items-center justify-center transition-all flex-shrink-0 shadow-lg hover:scale-105 active:scale-95",
+                            onclick: move |_| {
+                                ctrl.toggle();
+                            },
+                            i { class: if *is_playing.read() { "fa-solid fa-pause text-3xl" } else { "fa-solid fa-play text-3xl ml-1" } }
+                        }
+                        button {
+                            class: "text-white hover:text-white/80 transition-colors flex-shrink-0",
+                            onclick: move |_| {
+                                ctrl.play_next();
+                            },
+                            i { class: "fa-solid fa-forward-step text-3xl" }
+                        }
                     }
                     button {
                         class: format!("{} transition-all active:scale-95 relative flex-shrink-0",
@@ -205,19 +281,21 @@ pub fn Fullscreen(
                             LoopMode::Queue => "Repeat: Queue",
                             LoopMode::Track => "Repeat: Track",
                         },
-                        i { class: "fa-solid fa-repeat text-sm" }
+                        i { class: "fa-solid fa-repeat text-lg" }
                         match *ctrl.loop_mode.read() {
                              LoopMode::Track => rsx! {
-                                 span { class: "absolute -bottom-2.5 left-1/2 -translate-x-1/2 text-[9px] font-bold text-white leading-none", "1" }
+                                 span { class: "absolute -bottom-2.5 left-1/2 -translate-x-1/2 text-[10px] font-bold text-white leading-none", "1" }
                              },
-                             _ => rsx! {}
+                             _ => rsx! {
+                                 div {}
+                             }
                         }
                     }
                 }
 
                 div {
-                    class: "flex items-center gap-5 w-full mb-auto",
-                    style: "max-width: 320px;",
+                    class: "flex items-center gap-5 w-full",
+                    style: "max-width: 420px;",
                     i { class: "fa-solid fa-volume-low text-white/40" }
                     div {
                         class: "flex-1 cursor-pointer relative",
@@ -231,7 +309,7 @@ pub fn Fullscreen(
                             style: "height: 4px; top: 8px; left: 0; width: {volume_percent}%;"
                         }
                         div {
-                            class: "absolute bg-white rounded-full shadow-lg pointer-events-none",
+                            class: "absolute bg-white rounded-full pointer-events-none",
                             style: "width: 12px; height: 12px; top: 4px; left: calc({volume_percent}% - 6px);"
                         }
                         input {
@@ -251,18 +329,15 @@ pub fn Fullscreen(
                     }
                 }
 
-                div {
-                    class: "flex items-center justify-center gap-6 text-white/30 mt-8",
-                    button {
-                        class: "hover:text-white transition-colors",
-                        onclick: move |_| is_fullscreen.set(false),
-                        i { class: "fa-solid fa-chevron-down" }
-                    }
+                button {
+                    class: "absolute top-8 left-8 text-white/30 hover:text-white transition-colors",
+                    onclick: move |_| is_fullscreen.set(false),
+                    i { class: "fa-solid fa-chevron-down text-2xl" }
                 }
             }
 
             div {
-                class: "flex-1 flex flex-col h-full",
+                class: "flex-1 flex flex-col h-full min-w-0",
 
                 div {
                     class: "flex items-center gap-1 px-6 pt-4 pb-2 border-b border-white/10",
@@ -284,12 +359,52 @@ pub fn Fullscreen(
                         onclick: move |_| active_tab.set(1),
                         "UP NEXT"
                     }
+                    button {
+                        class: if *active_tab.read() == 2 {
+                            "px-4 py-2 text-xs font-medium tracking-wider text-white border-b-2 border-white"
+                        } else {
+                            "px-4 py-2 text-xs font-medium tracking-wider text-white/40 hover:text-white/70 transition-colors"
+                        },
+                        onclick: move |_| active_tab.set(2),
+                        "LYRICS"
+                    }
                 }
 
                 div {
                     class: "flex-1 overflow-y-auto px-4 py-2 space-y-1",
 
-                    if *active_tab.read() == 0 {
+                    if *active_tab.read() == 2 {
+                        div {
+                            class: "text-white/70 text-center py-4 px-8 leading-relaxed font-medium text-lg w-full max-w-2xl mx-auto flex flex-col gap-4",
+                            match &*lyrics.read() {
+                                Some(Some(utils::lyrics::Lyrics::Synced(lines))) => {
+                                    let active_idx = active_lyric_index();
+
+                                    rsx! {
+                                        for (i, line) in lines.iter().enumerate() {
+                                            div {
+                                                key: "{i}",
+                                                id: if i == active_idx { "active-lyric" } else { "" },
+                                                class: if i == active_idx {
+                                                    "text-white text-2xl font-bold transition-all duration-300"
+                                                } else {
+                                                    "text-white/40 transition-all duration-300 hover:text-white/60"
+                                                },
+                                                "{line.text}"
+                                            }
+                                        }
+                                    }
+                                }
+                                Some(Some(utils::lyrics::Lyrics::Plain(text))) => {
+                                    rsx! {
+                                        div { class: "whitespace-pre-wrap", "{text}" }
+                                    }
+                                }
+                                Some(None) => rsx! { "" },
+                                None => rsx! { "Loading lyrics..." },
+                            }
+                        }
+                    } else if *active_tab.read() == 0 {
                         if *current_queue_index.read() == 0 {
                             div { class: "text-white/30 text-center py-10 text-sm", "No previous songs" }
                         }
@@ -300,11 +415,11 @@ pub fn Fullscreen(
                                 rsx! {
                                     div {
                                         key: "{i}",
-                                        class: "flex items-center gap-6 px-3 py-3 hover:bg-white/5 cursor-pointer rounded transition-colors group",
+                                        class: "flex items-center gap-4 px-4 py-3 hover:bg-white/5 cursor-pointer rounded-lg transition-colors group",
                                         onclick: move |_| play_song_at_index(i),
                                         div {
-                                            class: "rounded overflow-hidden bg-black/30 shadow-md mr-6",
-                                            style: "width: 42px; height: 42px; flex-shrink: 0;",
+                                            class: "rounded-md overflow-hidden bg-black/30 flex-shrink-0 shadow-sm",
+                                            style: "width: 48px; height: 48px;",
                                             if let Some(ref url) = cover_url {
                                                 img { src: "{url}", class: "w-full h-full object-cover" }
                                             } else {
@@ -315,9 +430,9 @@ pub fn Fullscreen(
                                             }
                                         }
                                         div {
-                                            class: "flex-1 min-w-0 flex flex-col justify-center",
-                                            div { class: "text-sm text-white truncate font-medium", "{track.title}" }
-                                            div { class: "text-xs text-white/50 truncate group-hover:text-white/70", "{track.artist}" }
+                                            class: "flex-1 min-w-0 flex flex-col justify-center gap-0.5",
+                                            div { class: "text-base text-white truncate font-medium", "{track.title}" }
+                                            div { class: "text-sm text-white/50 truncate group-hover:text-white/70", "{track.artist}" }
                                         }
                                     }
                                 }
@@ -334,11 +449,11 @@ pub fn Fullscreen(
                                 rsx! {
                                     div {
                                         key: "{i}",
-                                        class: "flex items-center gap-6 px-3 py-3 hover:bg-white/5 cursor-pointer rounded transition-colors group",
+                                        class: "flex items-center gap-4 px-4 py-3 hover:bg-white/5 cursor-pointer rounded-lg transition-colors group",
                                         onclick: move |_| play_song_at_index(i),
                                         div {
-                                            class: "rounded overflow-hidden bg-black/30 shadow-md mr-6",
-                                            style: "width: 42px; height: 42px; flex-shrink: 0;",
+                                            class: "rounded-md overflow-hidden bg-black/30 flex-shrink-0 shadow-sm",
+                                            style: "width: 48px; height: 48px;",
                                             if let Some(ref url) = cover_url {
                                                 img { src: "{url}", class: "w-full h-full object-cover" }
                                             } else {
@@ -349,9 +464,9 @@ pub fn Fullscreen(
                                             }
                                         }
                                         div {
-                                            class: "flex-1 min-w-0 flex flex-col justify-center",
-                                            div { class: "text-sm text-white truncate font-medium", "{track.title}" }
-                                            div { class: "text-xs text-white/50 truncate group-hover:text-white/70", "{track.artist}" }
+                                            class: "flex-1 min-w-0 flex flex-col justify-center gap-0.5",
+                                            div { class: "text-base text-white truncate font-medium", "{track.title}" }
+                                            div { class: "text-sm text-white/50 truncate group-hover:text-white/70", "{track.artist}" }
                                         }
                                     }
                                 }

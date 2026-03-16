@@ -5,8 +5,8 @@ body {
 }
 
 body {
-    background-color: var(--color-black, #000000);
-    color: var(--color-white, #ffffff);
+    background-color: #000000;
+    color: #ffffff;
     font-family:
         "JetBrains Mono", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
     margin: 0;
@@ -61,7 +61,6 @@ body {
     justify-content: center;
     align-items: center;
     z-index: 1000;
-    backdrop-filter: blur(var(--blur-md, 12px));
 }
 
 .popup {
@@ -71,7 +70,7 @@ body {
     padding: 24px;
     min-width: 400px;
     max-width: 500px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+
     display: flex;
     flex-direction: column;
     gap: 16px;

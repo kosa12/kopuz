@@ -22,11 +22,36 @@ pub fn ThemeSelector(current_theme: String, on_change: EventHandler<String>) -> 
             class: "bg-white/5 border border-white/10 rounded px-3 py-1 text-sm text-white focus:outline-none focus:border-white/20",
             value: "{current_theme}",
             onchange: move |evt| on_change.call(evt.value()),
-            option { value: "default", "Default" }
-            option { value: "gruvbox", "Gruvbox Material" }
-            option { value: "dracula", "Dracula" }
-            option { value: "nord", "Nord" }
-            option { value: "catppuccin", "Catppuccin Mocha" }
+            optgroup { label: "── Dynamic ──",
+                option { value: "album-art", "Album Art Gradient" }
+            }
+            optgroup { label: "── Dark ──",
+                option { value: "default", "Default" }
+                option { value: "gruvbox", "Gruvbox Material" }
+                option { value: "gruvbox-classic", "Gruvbox Classic" }
+                option { value: "gruvbox-dark-soft", "Gruvbox Dark Soft" }
+                option { value: "dracula", "Dracula" }
+                option { value: "nord", "Nord" }
+                option { value: "catppuccin", "Catppuccin Mocha" }
+                option { value: "ef-night", "Ef Night" }
+                option { value: "ayu-dark", "Ayu Dark" }
+                option { value: "ayu-mirage", "Ayu Mirage" }
+                option { value: "vague", "Vague" }
+                option { value: "onedarkpro", "One Dark Pro" }
+                option { value: "osmium", "Osmium" }
+                option { value: "kanagawa-dragon", "Kanagawa Dragon" }
+                option { value: "everforest", "Everforest" }
+                option { value: "rosepine", "Rosé Pine" }
+            }
+            optgroup { label: "── Light ──",
+                option { value: "default-light", "Default Light" }
+                option { value: "catppuccin-latte", "Catppuccin Latte" }
+                option { value: "rosepine-dawn", "Rosé Pine Dawn" }
+                option { value: "everforest-light", "Everforest Light" }
+                option { value: "ayu-light", "Ayu Light" }
+                option { value: "one-light", "One Light" }
+                option { value: "gruvbox-light", "Gruvbox Light Soft" }
+            }
         }
     }
 }
@@ -135,6 +160,47 @@ pub fn DiscordPresenceSettings(enabled: bool, on_change: EventHandler<bool>) -> 
 }
 
 #[component]
+pub fn ToggleSetting(enabled: bool, on_change: EventHandler<bool>) -> Element {
+    let slider_style = if enabled {
+        "left: 4px; width: calc(50% - 4px);"
+    } else {
+        "left: calc(50% + 2px); width: calc(50% - 4px);"
+    };
+
+    let enable_class = if enabled {
+        "text-white"
+    } else {
+        "text-slate-500 hover:text-slate-300"
+    };
+
+    let disable_class = if !enabled {
+        "text-white"
+    } else {
+        "text-slate-500 hover:text-slate-300"
+    };
+
+    rsx! {
+        div {
+            class: "bg-white/5 p-1 rounded-xl flex relative h-10 items-center border border-white/5 w-48",
+            div {
+                class: "absolute h-8 bg-white/10 rounded-lg transition-all duration-300 ease-out",
+                style: "{slider_style}"
+            }
+            button {
+                class: "flex-1 text-[11px] font-bold z-10 transition-colors duration-300 cursor-pointer {enable_class}",
+                onclick: move |_| on_change.call(true),
+                "ENABLED"
+            }
+            button {
+                class: "flex-1 text-[11px] font-bold z-10 transition-colors duration-300 cursor-pointer {disable_class}",
+                onclick: move |_| on_change.call(false),
+                "DISABLED"
+            }
+        }
+    }
+}
+
+#[component]
 pub fn MusicBrainzSettings(current: String, on_save: EventHandler<String>) -> Element {
     let mut input = use_signal(move || current.clone());
 
@@ -151,7 +217,7 @@ pub fn MusicBrainzSettings(current: String, on_save: EventHandler<String>) -> El
                         input.set(evt.value());
                         on_save.call(evt.value());
                     },
-                    r#type: "text",
+                    r#type: "password",
                 }
             }
         }

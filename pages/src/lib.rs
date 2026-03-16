@@ -1,7 +1,10 @@
 pub mod album;
 pub mod artist;
+pub mod favorites;
 pub mod home;
+pub mod jellyfin;
 pub mod library;
+pub mod local;
 pub mod logs;
 pub mod playlists;
 pub mod search;

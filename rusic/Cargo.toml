@@ -1,6 +1,6 @@
 [package]
 name = "rusic"
-version = "0.3.1"
+version = "0.3.3"
 edition = "2024"
 
 [package.metadata.bundle]
@@ -27,6 +27,8 @@ hooks = { workspace = true }
 percent-encoding = { workspace = true }
 discord-presence = { workspace = true }
 discord-rich-presence = { workspace = true }
+utils = { workspace = true }
+rand = { workspace = true }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 base64 = "0.22" # TODO REMOVE THIS
@@ -44,6 +46,13 @@ default = []
 [profile]
 [profile.dev.package."*"]
 opt-level = 3
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
+panic = "abort"
 
 [profile.wasm-dev]
 inherits = "dev"

@@ -1,6 +1,6 @@
 [package]
 name = "components"
-version = "0.3.1"
+version = "0.3.3"
 edition = "2024"
 
 [dependencies]
@@ -16,3 +16,4 @@ rfd = { workspace = true }
 hooks = { workspace = true }
 rand = { workspace = true }
 server = { workspace = true }
+tokio = { workspace = true, features = ["time"] }

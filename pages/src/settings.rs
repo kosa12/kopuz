@@ -1,6 +1,6 @@
 use components::settings_items::{
     DirectoryPicker, DiscordPresenceSettings, MusicBrainzSettings, ServerSettings, SettingItem,
-    ThemeSelector,
+    ThemeSelector, ToggleSetting,
 };
 use components::settings_popups::{AddServerPopup, LoginPopup};
 use config::AppConfig;
@@ -153,6 +153,20 @@ pub fn Settings(config: Signal<AppConfig>) -> Element {
                                 DiscordPresenceSettings {
                                     enabled: config.read().discord_presence.unwrap_or(true),
                                     on_change: move |val| config.write().discord_presence = Some(val),
+                                }
+                            }
+                        }
+                        SettingItem {
+                            title: "Reduce Animations",
+                            description: if config.read().reduce_animations {
+                                "Animations are reduced".to_string()
+                            } else {
+                                "Animations are enabled".to_string()
+                            },
+                            control: rsx! {
+                                ToggleSetting {
+                                    enabled: config.read().reduce_animations,
+                                    on_change: move |val| config.write().reduce_animations = val,
                                 }
                             }
                         }

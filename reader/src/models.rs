@@ -24,6 +24,8 @@ pub struct Track {
     pub bitrate: u8,
     pub track_number: Option<u32>,
     pub disc_number: Option<u32>,
+    #[serde(default)]
+    pub musicbrainz_release_id: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
@@ -39,7 +41,6 @@ pub struct Library {
     #[serde(default)]
     pub jellyfin_genres: Vec<(String, String)>, // (Name, ID)
 }
-
 
 impl Library {
     pub fn new(root_path: PathBuf) -> Self {
@@ -63,7 +64,7 @@ impl Library {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
         }
-        let data = serde_json::to_string_pretty(self)
+        let data = serde_json::to_string(self)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
         fs::write(path, data)
     }
@@ -90,6 +91,11 @@ impl Library {
 
     pub fn remove_track(&mut self, path: &Path) {
         self.tracks.retain(|t| t.path != path);
+    }
+
+    pub fn remove_album(&mut self, album_id: &str) {
+        self.albums.retain(|a| a.id != album_id);
+        self.tracks.retain(|t| t.album_id != album_id);
     }
 }
 
@@ -129,8 +135,65 @@ impl PlaylistStore {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
         }
+        let data = serde_json::to_string(self)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
+        fs::write(path, data)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
+pub struct FavoritesStore {
+    #[serde(default)]
+    pub local_favorites: Vec<PathBuf>,
+    #[serde(default)]
+    pub jellyfin_favorites: Vec<String>,
+}
+
+impl FavoritesStore {
+    pub fn load(path: &Path) -> std::io::Result<Self> {
+        if !path.exists() {
+            return Ok(Self::default());
+        }
+        let data = fs::read_to_string(path)?;
+        let store = serde_json::from_str(&data)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
+        Ok(store)
+    }
+
+    pub fn save(&self, path: &Path) -> std::io::Result<()> {
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
         let data = serde_json::to_string_pretty(self)
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string()))?;
         fs::write(path, data)
+    }
+
+    pub fn is_local_favorite(&self, path: &Path) -> bool {
+        self.local_favorites.iter().any(|p| p == path)
+    }
+
+    pub fn is_jellyfin_favorite(&self, id: &str) -> bool {
+        self.jellyfin_favorites.iter().any(|i| i == id)
+    }
+
+    pub fn toggle_local(&mut self, path: PathBuf) -> bool {
+        if let Some(pos) = self.local_favorites.iter().position(|p| p == &path) {
+            self.local_favorites.remove(pos);
+            false
+        } else {
+            self.local_favorites.push(path);
+            true
+        }
+    }
+
+    pub fn set_jellyfin(&mut self, id: String, is_fav: bool) {
+        if is_fav {
+            if !self.jellyfin_favorites.contains(&id) {
+                self.jellyfin_favorites.push(id);
+            }
+        } else {
+            self.jellyfin_favorites.retain(|i| i != &id);
+        }
     }
 }

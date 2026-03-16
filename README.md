@@ -1,10 +1,11 @@
 # Rusic
+
 Rusic is a modern, lightweight, music player application built with Rust and the Dioxus framework. It provides a clean and responsive interface for managing and enjoying your local music collection.
 
 [![Discord](https://img.shields.io/badge/Discord-5865F2?style=flat&logo=discord&logoColor=white)](https://discord.gg/K6Bmzw2E4M)
 ![Rust](https://img.shields.io/badge/Rust-000000?style=flat&logo=rust&logoColor=white)
 
-![Rusic](https://github.com/user-attachments/assets/3f2e4846-e527-43bf-af65-0327866b376e)
+![Rusic](https://github.com/user-attachments/assets/e5c09b56-c6b7-4428-876b-b76704245b9e)
 
 ## Overview
 
@@ -16,8 +17,57 @@ Rusic allows you to scan your local directories for audio files, or you jellyfin
 - **Native Integration**: Integrates with system media controls (MPRIS) and "Now Playing" displays.
 - **Discord RPC**: Embedded RPC included!!!
 - **Double Option**: Yes, you can also use your jellyfin server to listen to your music coming from your server!
+- **Lyrics Support**: Enjoy real-time synced and plain lyrics, complete with auto-scrolling to follow along with your music.
+- **High Performance**: Heavy background processing and an optimized library scanner ensure the app opens instantly, runs smoothly, and skips previously indexed files quickly.
+- **Auto-Cleanup**: Automatically removes missing or deleted tracks from your library when rescanning.
+- **Smooth Navigation**: Enjoy a polished interface where scroll positions reset properly as you browse different views and pages.
 
 ## Installation
+
+### NixOS / Nix
+
+**Run directly without installing:**
+
+```bash
+nix run github:temidaradev/rusic
+```
+
+**Install to your profile:**
+
+```bash
+nix profile add github:temidaradev/rusic
+```
+
+**NixOS flake (recommended — installs as a proper system app with icon & `.desktop` entry):**
+
+Add rusic to your `flake.nix` inputs:
+
+```nix
+inputs.rusic.url = "github:temidaradev/rusic";
+```
+
+Pass it through to your system config and add the Cachix substituter so it downloads the pre-built binary instead of compiling:
+
+```nix
+# nixos/nix/default.nix
+nix.settings = {
+  substituters      = [ "https://cache.nixos.org" "https://rusic.cachix.org" ];
+  trusted-public-keys = [
+    "cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY="
+    "rusic.cachix.org-1:WXMpGpamblLUiJtcoxBxGGGGwIcWxGPJBUxarLiqWmw="
+  ];
+};
+```
+
+Then install the package:
+
+```nix
+# configuration.nix || machine.nix
+environment.systemPackages = [
+  rusic.packages.${system}.default
+];
+```
+
 
 ### Flatpak (Recommended)
 
@@ -41,13 +91,30 @@ npm install
 dx serve --package rusic
 ```
 
-### MacOS Quarantine
+### macOS
 
-Because Apple hates open-source software, they have made it harder for users to install them since they don't explicitly "trust" them. Though the source code can be verified by yours truly. However, in the meantime, after downloading the ``.dmg`` and dragging the app to your /Applications, use:
+**Quarantine note:** If you downloaded a `.dmg` instead, macOS may block it. Run once to clear the quarantine flag:
 
 ```bash
 xattr -d com.apple.quarantine /Applications/Rusic.app
 ```
+
+
+### Where does Rusic keep its files?
+
+On **macOS** everything lives under your Library folders:
+- `~/Library/Application Support/com.temidaradev.rusic/config.json` — your settings
+- `~/Library/Caches/com.temidaradev.rusic/library.json` — the scanned library
+- `~/Library/Caches/com.temidaradev.rusic/playlists.json` — your playlists
+- `~/Library/Caches/com.temidaradev.rusic/covers/` — cached album art
+
+On **Linux** it follows the XDG spec like you'd expect:
+- `~/.config/rusic/config.json` — your settings
+- `~/.cache/rusic/library.json` — the scanned library
+- `~/.cache/rusic/playlists.json` — your playlists
+- `~/.cache/rusic/covers/` — cached album art
+
+If covers aren't showing or the library looks off, just delete the cache folder and hit rescan.
 
 ### Scrobbling functionality
 

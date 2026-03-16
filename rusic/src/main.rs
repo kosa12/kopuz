@@ -5,6 +5,7 @@ use dioxus::desktop::tao::platform::macos::WindowBuilderExtMacOS;
 use dioxus::prelude::*;
 use discord_presence::Presence;
 use player::player::Player;
+use reader::FavoritesStore;
 use rusic_route::Route;
 use std::{borrow::Cow, sync::Arc};
 
@@ -12,6 +13,7 @@ const FAVICON: Asset = asset!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/favic
 const MAIN_CSS: Asset = asset!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/main.css"));
 const THEME_CSS: Asset = asset!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/themes.css"));
 const TAILWIND_CSS: Asset = asset!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/tailwind.css"));
+const REDUCED_ANIMATIONS_CSS: Asset = asset!(concat!(env!("CARGO_MANIFEST_DIR"), "/assets/reduced-animations.css"));
 
 static PRESENCE: std::sync::OnceLock<Option<Arc<Presence>>> = std::sync::OnceLock::new();
 
@@ -150,10 +152,12 @@ fn App() -> Element {
     });
     let lib_path = use_memo(move || cache_dir().join("library.json"));
     let config_path = use_memo(move || config_dir().join("config.json"));
-    let config = use_signal(|| config::AppConfig::load(&config_path()));
+    let mut config = use_signal(|| config::AppConfig::default());
     let playlist_path = use_memo(move || cache_dir().join("playlists.json"));
-    let playlist_store =
-        use_signal(|| reader::PlaylistStore::load(&playlist_path()).unwrap_or_default());
+    let mut playlist_store = use_signal(|| reader::PlaylistStore::default());
+    let favorites_path = use_memo(move || cache_dir().join("favorites.json"));
+    let mut favorites_store = use_signal(|| FavoritesStore::default());
+    let mut initial_load_done = use_signal(|| false);
     let cover_cache = use_memo(move || cache_dir().join("covers"));
     let _ = std::fs::create_dir_all(cover_cache());
     let mut trigger_rescan = use_signal(|| 0);
@@ -171,6 +175,20 @@ fn App() -> Element {
 
     let is_playing = use_signal(|| false);
     let is_fullscreen = use_signal(|| false);
+    let mut palette = use_signal(|| Option::<Vec<utils::color::Color>>::None);
+
+    use_effect(move || {
+        let url = current_song_cover_url.read().clone();
+        if !url.is_empty() {
+            spawn(async move {
+                if let Some(colors) = utils::color::get_palette_from_url(&url).await {
+                    palette.set(Some(colors));
+                }
+            });
+        } else {
+            palette.set(None);
+        }
+    });
 
     let presence = PRESENCE.get().cloned().flatten();
 
@@ -182,32 +200,87 @@ fn App() -> Element {
     let search_query = use_signal(String::new);
 
     use_effect(move || {
-        if let Err(e) = config.read().save(&config_path()) {
-            eprintln!("Failed to save config: {}", e);
+        if !*initial_load_done.read() {
+            return;
         }
-    });
-
-    use_effect(move || {
-        if let Err(e) = playlist_store.read().save(&playlist_path()) {
-            eprintln!("Failed to save playlists: {}", e);
-        }
-    });
-
-    use_effect(move || {
-        if let Err(e) = library.read().save(&lib_path()) {
-            eprintln!("Failed to save library: {}", e);
-        }
-    });
-
-    use_hook(move || {
+        let config_snapshot = config.read().clone();
+        let path = config_path();
         spawn(async move {
-            if let Ok(loaded) = reader::Library::load(&lib_path()) {
-                library.set(loaded);
+            let result = tokio::task::spawn_blocking(move || config_snapshot.save(&path)).await;
+            if let Ok(Err(e)) = result {
+                eprintln!("Failed to save config: {}", e);
             }
         });
     });
 
     use_effect(move || {
+        if !*initial_load_done.read() {
+            return;
+        }
+        let store_snapshot = playlist_store.read().clone();
+        let path = playlist_path();
+        spawn(async move {
+            let result = tokio::task::spawn_blocking(move || store_snapshot.save(&path)).await;
+            if let Ok(Err(e)) = result {
+                eprintln!("Failed to save playlists: {}", e);
+            }
+        });
+    });
+
+    use_effect(move || {
+        if !*initial_load_done.read() {
+            return;
+        }
+        let lib_snapshot = library.read().clone();
+        let path = lib_path();
+        spawn(async move {
+            let result = tokio::task::spawn_blocking(move || lib_snapshot.save(&path)).await;
+            if let Ok(Err(e)) = result {
+                eprintln!("Failed to save library: {}", e);
+            }
+        });
+    });
+
+    use_hook(move || {
+        let lib_path = lib_path();
+        let config_path = config_path();
+        let playlist_path = playlist_path();
+        let favorites_path = favorites_path();
+
+        spawn(async move {
+            let lib_path_c = lib_path.clone();
+            let config_path_c = config_path.clone();
+            let playlist_path_c = playlist_path.clone();
+            let favorites_path_c = favorites_path.clone();
+
+            let (lib_res, cfg_res, pl_res, fav_res) = tokio::join!(
+                tokio::task::spawn_blocking(move || reader::Library::load(&lib_path_c)),
+                tokio::task::spawn_blocking(move || config::AppConfig::load(&config_path_c)),
+                tokio::task::spawn_blocking(move || reader::PlaylistStore::load(&playlist_path_c)),
+                tokio::task::spawn_blocking(move || FavoritesStore::load(&favorites_path_c)),
+            );
+
+            if let Ok(Ok(loaded)) = lib_res {
+                library.set(loaded);
+            }
+            if let Ok(loaded) = cfg_res {
+                config.set(loaded);
+            }
+            if let Ok(Ok(loaded)) = pl_res {
+                playlist_store.set(loaded);
+            }
+            if let Ok(Ok(loaded)) = fav_res {
+                favorites_store.set(loaded);
+            }
+
+            initial_load_done.set(true);
+        });
+    });
+
+    use_effect(move || {
+        if !*initial_load_done.read() {
+            return;
+        }
         let music_dir = config.read().music_directory.clone();
         let _ = trigger_rescan.read();
 
@@ -223,11 +296,28 @@ fn App() -> Element {
                 if (reader::scan_directory(music_dir, cover_cache(), &mut current_lib).await)
                     .is_ok()
                 {
+                    current_lib.tracks.retain(|t| t.path.exists());
+                    let valid_album_ids: std::collections::HashSet<_> = current_lib
+                        .tracks
+                        .iter()
+                        .map(|t| t.album_id.clone())
+                        .collect();
+                    current_lib
+                        .albums
+                        .retain(|a| valid_album_ids.contains(&a.id));
+
                     library.set(current_lib.clone());
                     let _ = current_lib.save(&lib_path());
                 }
             }
         });
+    });
+
+    use_effect(move || {
+        let _ = current_route.read();
+        let _ = dioxus::document::eval(
+            "let el = document.getElementById('main-scroll-area'); if (el) el.scrollTop = 0;",
+        );
     });
 
     let mut queue = use_signal(Vec::<reader::Track>::new);
@@ -255,15 +345,29 @@ fn App() -> Element {
 
     hooks::use_player_task(ctrl);
 
+    let theme_class = if config.read().theme == "album-art" {
+        "theme-default".to_string()
+    } else {
+        format!("theme-{}", config.read().theme)
+    };
+
+    let background_style = if config.read().theme == "album-art" {
+        utils::color::get_background_style(palette.read().as_deref())
+    } else {
+        "background-color: var(--color-black); background-image: none;".to_string()
+    };
     rsx! {
         document::Link { rel: "icon", href: FAVICON }
         document::Link { rel: "stylesheet", href: MAIN_CSS }
         document::Link { rel: "stylesheet", href: THEME_CSS }
         document::Link { rel: "stylesheet", href: TAILWIND_CSS }
+        document::Link { rel: "stylesheet", href: REDUCED_ANIMATIONS_CSS }
         document::Link { rel: "stylesheet", href: "https://fonts.bunny.net/css?family=jetbrains-mono:400,500,700,800&display=swap" }
         document::Link { rel: "stylesheet", href: "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" }
         div {
-            class: "flex flex-col h-screen theme-{config.read().theme}",
+            class: "flex flex-col h-screen text-white {theme_class}",
+            style: "{background_style}",
+            "data-reduce-animations": "{config.read().reduce_animations}",
             tabindex: "0",
             autofocus: true,
             onkeydown: move |evt| {
@@ -288,12 +392,14 @@ fn App() -> Element {
                     }
                 }
                 div {
+                    id: "main-scroll-area",
                     class: "flex-1 overflow-y-auto",
                     match *current_route.read() {
                         Route::Home => rsx! {
                             pages::home::Home {
                                 library,
                                 playlist_store,
+                                favorites_store,
                                 on_select_album: move |id: String| {
                                     selected_album_id.set(id);
                                     current_route.set(Route::Album);
@@ -409,6 +515,23 @@ fn App() -> Element {
                                 }
                             }
                         },
+                        Route::Favorites => rsx! {
+                            pages::favorites::FavoritesPage {
+                                favorites_store,
+                                library,
+                                config,
+                                player,
+                                is_playing,
+                                current_playing,
+                                current_song_cover_url,
+                                current_song_title,
+                                current_song_artist,
+                                current_song_duration,
+                                current_song_progress,
+                                queue,
+                                current_queue_index,
+                            }
+                        },
                         Route::Playlists => rsx! {
                             pages::playlists::PlaylistsPage {
                                 playlist_store: playlist_store,
@@ -453,9 +576,12 @@ fn App() -> Element {
                 current_song_artist: current_song_artist,
                 current_song_cover_url: current_song_cover_url,
                 volume: volume,
+                palette: palette,
             }
             Bottombar {
                 library: library,
+                favorites_store,
+                config,
                 current_song_cover_url: current_song_cover_url,
                 current_song_title: current_song_title,
                 current_song_artist: current_song_artist,

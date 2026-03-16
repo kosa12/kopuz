@@ -38,6 +38,8 @@ pub struct AppConfig {
     pub musicbrainz_token: String,
     #[serde(default)]
     pub lastfm_token: String,
+    #[serde(default)]
+    pub reduce_animations: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -80,6 +82,7 @@ impl Default for AppConfig {
             listen_counts: HashMap::new(),
             musicbrainz_token: String::new(),
             lastfm_token: String::new(),
+            reduce_animations: false,
         }
     }
 }
