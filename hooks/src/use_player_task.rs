@@ -53,7 +53,7 @@ fn drain_bg_cmds() -> Vec<BgCmd> {
 
 #[inline]
 fn nudge_event_loop() {
-    #[cfg(target_os = "macos")]
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
     player::systemint::wake_run_loop();
 }
 
