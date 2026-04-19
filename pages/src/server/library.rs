@@ -11,7 +11,7 @@ use reader::Library;
 use std::collections::HashSet;
 use std::path::PathBuf;
 
-const ITEM_HEIGHT: f64 = 60.0;
+const ITEM_HEIGHT: f64 = 64.0; // 60px content + 4px margin (mb-1)
 #[component]
 pub fn JellyfinLibrary(
     mut library: Signal<Library>,
