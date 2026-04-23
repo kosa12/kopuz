@@ -10,7 +10,7 @@ use reader::Library;
 use std::collections::HashSet;
 use std::path::PathBuf;
 
-const ITEM_HEIGHT: f64 = 60.0; // 60px content
+const ITEM_HEIGHT: f64 = 60.0; // 60px: p-2 padding (16px*2=32) + content height (~28px)
 
 #[component]
 pub fn LocalLibrary(
@@ -23,7 +23,7 @@ pub fn LocalLibrary(
     let items = use_library_items(library);
     let mut sort_order = items.sort_order;
     let mut scroll_stat = use_signal(|| 0.0);
-    let mut container_height = use_signal(|| 800.0);
+    let mut container_height = use_signal(|| f64::NAN); // Set on mount
 
     use_effect(move || {
         let curr = sort_order.read().clone();
@@ -55,7 +55,12 @@ pub fn LocalLibrary(
 
     let scroll_top = *scroll_stat.read();
     let row_height = ITEM_HEIGHT;
-    let window_size = (*container_height.read() / row_height).ceil() as usize;
+    let container_h = *container_height.read();
+    let window_size = if container_h.is_nan() {
+        0
+    } else {
+        (container_h / row_height).ceil() as usize
+    };
     let buffer_size = 10;
     let total_tracks = displayed_tracks().len();
 
@@ -101,7 +106,7 @@ pub fn LocalLibrary(
             let track_path = track.path.clone();
             let track_select = track.path.clone();
             let queue_arc = std::sync::Arc::clone(&queue_source);
-            let track_key = format!("{}-{}", track.path.display(), idx);
+            let track_key = track.path.display().to_string();
             let is_menu_open = active_menu_track.read().as_ref() == Some(&track.path);
             let is_selected = selected_tracks.read().contains(&track_path);
 
