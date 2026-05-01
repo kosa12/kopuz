@@ -8,7 +8,7 @@ const PROGRESS_PREFIX: &str = "progress=";
 const PROCESSING_PREFIX: &str = "processing=";
 const PRINT_TITLE: &str = "title=%(title)s";
 const PROGRESS_TEMPLATE_DOWNLOAD: &str =
-    "download:progress=%(progress)s|speed=%(speed)s|eta=%(eta)s";
+    "download:progress=%(progress._percent_str)s|speed=%(progress.speed)s|eta=%(progress.eta)s";
 const PROGRESS_TEMPLATE_POSTPROCESS: &str = "postprocess:processing=1";
 
 #[derive(Clone, Debug, PartialEq)]
