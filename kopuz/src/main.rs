@@ -217,6 +217,24 @@ fn App() -> Element {
     let rightbar_width = use_signal(|| 320usize);
     let mut palette = use_signal(|| Option::<Vec<utils::color::Color>>::None);
 
+    #[cfg(all(not(target_arch = "wasm32"), target_os = "macos"))]
+    use_effect(move || {
+        let _ = dioxus::document::eval(r#"(function(){
+            try {
+                var ctx = new (window.AudioContext||window.webkitAudioContext)({sampleRate:8000});
+                var buf = ctx.createBuffer(1,1,8000);
+                var src = ctx.createBufferSource();
+                src.buffer = buf;
+                src.loop = true;
+                src.connect(ctx.destination);
+                src.start(0);
+                document.addEventListener('visibilitychange', function(){
+                    if (ctx.state === 'suspended') ctx.resume();
+                });
+            } catch(e) {}
+        })()"#);
+    });
+
     use_effect(move || {
         let url = current_song_cover_url.read().clone();
         if !url.is_empty() {
