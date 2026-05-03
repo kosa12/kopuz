@@ -702,6 +702,10 @@ impl Player {
         st.paused
     }
 
+    pub fn has_active_track(&self) -> bool {
+        self.now_playing.is_some()
+    }
+
     pub fn stop(&mut self) {
         self.stop_internal();
         self.now_playing = None;
@@ -951,6 +955,10 @@ impl Player {
 
     pub fn is_paused(&self) -> bool {
         self.audio.paused()
+    }
+
+    pub fn has_active_track(&self) -> bool {
+        self.has_source
     }
 
     pub fn get_position(&self) -> Duration {

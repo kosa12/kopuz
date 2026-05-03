@@ -53,6 +53,94 @@ pub struct PlayerController {
 }
 
 impl PlayerController {
+    fn cover_url_for_track(&self, track: &Track) -> String {
+        let path_str = track.path.to_string_lossy().to_string();
+        let provider = if path_str.starts_with("jellyfin:") {
+            Some(MusicService::Jellyfin)
+        } else if path_str.starts_with("subsonic:") {
+            Some(MusicService::Subsonic)
+        } else if path_str.starts_with("custom:") {
+            Some(MusicService::Custom)
+        } else {
+            None
+        };
+
+        if let Some(provider) = provider {
+            let conf = self.config.peek();
+            if let Some(server) = &conf.server {
+                return match provider {
+                    MusicService::Jellyfin => utils::jellyfin_image::jellyfin_image_url_from_path(
+                        &path_str,
+                        &server.url,
+                        server.access_token.as_deref(),
+                        800,
+                        90,
+                    )
+                    .unwrap_or_default(),
+                    MusicService::Subsonic | MusicService::Custom => {
+                        utils::subsonic_image::subsonic_image_url_from_path(
+                            &path_str,
+                            &server.url,
+                            server.access_token.as_deref(),
+                            800,
+                            90,
+                        )
+                        .unwrap_or_default()
+                    }
+                };
+            }
+            return String::new();
+        }
+
+        let lib = self.library.peek();
+        lib.albums
+            .iter()
+            .find(|album| album.id == track.album_id)
+            .and_then(|album| utils::format_artwork_url(album.cover_path.as_ref()))
+            .unwrap_or_default()
+    }
+
+    fn apply_current_track_ui(&mut self, track: &Track) {
+        self.current_song_title.set(track.title.clone());
+        self.current_song_artist.set(track.artist.clone());
+        self.current_song_album.set(track.album.clone());
+        self.current_song_khz.set(track.khz);
+        self.current_song_bitrate.set(track.bitrate);
+        self.current_song_duration.set(track.duration);
+        self.current_song_progress.set(0);
+        self.current_song_cover_url.set(self.cover_url_for_track(track));
+    }
+
+    pub fn sync_current_track_from_queue(&mut self) {
+        let idx = *self.current_queue_index.peek();
+        let track = self.queue.peek().get(idx).cloned();
+        if let Some(track) = track {
+            self.apply_current_track_ui(&track);
+        } else {
+            self.current_song_title.set(String::new());
+            self.current_song_artist.set(String::new());
+            self.current_song_album.set(String::new());
+            self.current_song_khz.set(0);
+            self.current_song_bitrate.set(0);
+            self.current_song_duration.set(0);
+            self.current_song_progress.set(0);
+            self.current_song_cover_url.set(String::new());
+        }
+    }
+
+    pub fn restore_queue_state(&mut self, queue: Vec<Track>, current_index: usize) {
+        let clamped_index = if queue.is_empty() {
+            0
+        } else {
+            current_index.min(queue.len().saturating_sub(1))
+        };
+
+        self.queue.set(queue);
+        self.current_queue_index.set(clamped_index);
+        self.is_playing.set(false);
+        self.sync_current_track_from_queue();
+    }
+
     /// Remap a queue index after moving one item within the queue.
     ///
     /// `index` is the position to remap, `from` is the original position of the moved item,
@@ -647,6 +735,14 @@ impl PlayerController {
     }
 
     pub fn resume(&mut self) {
+        if !self.player.peek().has_active_track() {
+            let idx = *self.current_queue_index.peek();
+            if idx < self.queue.peek().len() {
+                self.play_track_no_history(idx);
+            }
+            return;
+        }
+
         self.player.write().play_resume();
         self.is_playing.set(true);
     }
