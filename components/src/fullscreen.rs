@@ -1,3 +1,4 @@
+use crate::reorder_buttons::ReorderButtons;
 use config::AppConfig;
 use dioxus::document::eval;
 use dioxus::prelude::*;
@@ -22,6 +23,7 @@ pub fn Fullscreen(
     mut current_song_cover_url: Signal<String>,
     mut current_song_album: Signal<String>,
     mut volume: Signal<f32>,
+    mut persisted_volume: Signal<f32>,
     palette: Signal<Option<Vec<utils::color::Color>>>,
 ) -> Element {
     let mut is_dragging = use_signal(|| false);
@@ -63,6 +65,9 @@ pub fn Fullscreen(
 
     let mut play_song_at_index = move |index: usize| {
         ctrl.play_track(index);
+    };
+    let mut move_queue_item = move |from: usize, to: usize| {
+        ctrl.move_queue_item(from, to);
     };
 
     let mut config = use_context::<Signal<AppConfig>>();
@@ -347,7 +352,7 @@ pub fn Fullscreen(
                             class: "absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer",
                             onchange: move |evt| {
                                 if let Ok(val) = evt.value().parse::<f32>() {
-                                    config.write().volume = val;
+                                    persisted_volume.set(val);
                                 }
                             },
                             oninput: move |evt| {
@@ -477,6 +482,8 @@ pub fn Fullscreen(
                             {
                                 let track = queue.read()[i].clone();
                                 let cover_url = get_track_cover(&track);
+                                let can_move_up = i > *current_queue_index.read() + 1;
+                                let can_move_down = i + 1 < queue.read().len();
                                 rsx! {
                                     div {
                                         key: "{i}",
@@ -498,6 +505,14 @@ pub fn Fullscreen(
                                             class: "flex-1 min-w-0 flex flex-col justify-center gap-0.5",
                                             div { class: "text-base text-white truncate font-medium", "{track.title}" }
                                             div { class: "text-sm text-white/50 truncate group-hover:text-white/70", "{track.artist}" }
+                                        }
+                                        ReorderButtons {
+                                            can_move_up,
+                                            can_move_down,
+                                            class: "flex flex-col pr-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity".to_string(),
+                                            icon_class: "text-[10px]".to_string(),
+                                            on_move_up: move |_| move_queue_item(i, i - 1),
+                                            on_move_down: move |_| move_queue_item(i, i + 1),
                                         }
                                     }
                                 }

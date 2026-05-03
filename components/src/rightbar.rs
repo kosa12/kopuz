@@ -1,3 +1,4 @@
+use crate::reorder_buttons::ReorderButtons;
 use config::AppConfig;
 use dioxus::document::eval;
 use dioxus::prelude::*;
@@ -126,6 +127,9 @@ pub fn Rightbar(
 
     let mut play_song_at_index = move |index: usize| {
         ctrl.play_track_no_history(index);
+    };
+    let mut move_queue_item = move |from: usize, to: usize| {
+        ctrl.move_queue_item(from, to);
     };
 
     let mut is_resizing = use_signal(|| false);
@@ -298,6 +302,8 @@ pub fn Rightbar(
                         {
                             let track = queue.read()[i].clone();
                             let cover_url = get_track_cover(&track);
+                            let can_move_up = i > *current_queue_index.read() + 1;
+                            let can_move_down = i + 1 < queue.read().len();
                             rsx! {
                                 div {
                                     key: "{i}",
@@ -319,6 +325,13 @@ pub fn Rightbar(
                                         class: "flex-1 min-w-0 flex flex-col justify-center gap-0.5",
                                         div { class: "text-sm text-white truncate font-medium", "{track.title}" }
                                         div { class: "text-xs text-white/50 truncate group-hover:text-white/70", "{track.artist}" }
+                                    }
+                                    ReorderButtons {
+                                        can_move_up,
+                                        can_move_down,
+                                        class: "flex flex-col pr-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity".to_string(),
+                                        on_move_up: move |_| move_queue_item(i, i - 1),
+                                        on_move_down: move |_| move_queue_item(i, i + 1),
                                     }
                                 }
                             }
