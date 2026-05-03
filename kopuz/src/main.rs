@@ -9,6 +9,8 @@ use components::{
 };
 #[cfg(not(target_arch = "wasm32"))]
 use dioxus::desktop::tao::dpi::LogicalSize;
+#[cfg(not(target_arch = "wasm32"))]
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 #[cfg(all(not(target_arch = "wasm32"), target_os = "macos"))]
 use dioxus::desktop::tao::platform::macos::WindowBuilderExtMacOS;
 use dioxus::prelude::*;
@@ -39,8 +41,8 @@ fn persist_config_snapshot(config_snapshot: config::AppConfig, path: std::path::
         let result = tokio::task::spawn_blocking(move || config_snapshot.save(&path)).await;
         match result {
             Ok(Ok(())) => {}
-            Ok(Err(e)) => eprintln!("Failed to save config: {}", e),
-            Err(e) => eprintln!("Failed to join config save task: {}", e),
+            Ok(Err(e)) => tracing::error!("Failed to save config: {}", e),
+            Err(e) => tracing::error!("Failed to join config save task: {}", e),
         }
     });
 }
@@ -53,13 +55,33 @@ fn persist_config_snapshot(config_snapshot: config::AppConfig, _path: std::path:
 fn main() {
     #[cfg(not(target_arch = "wasm32"))]
     {
+        let log_dir = directories::ProjectDirs::from("com", "temidaradev", "kopuz")
+            .map(|dirs| dirs.data_local_dir().join("logs"))
+            .unwrap_or_else(|| std::path::PathBuf::from("logs"));
+        let _ = std::fs::create_dir_all(&log_dir);
+
+        let file_appender = tracing_appender::rolling::daily(&log_dir, "kopuz.log");
+        let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
+        tracing_subscriber::registry()
+            .with(
+                tracing_subscriber::EnvFilter::try_from_default_env()
+                    .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info")),
+            )
+            .with(
+                tracing_subscriber::fmt::layer()
+                    .with_ansi(false)
+                    .with_writer(non_blocking),
+            )
+            .init();
+        tracing::info!("Log file: {}", log_dir.display());
+
         let presence: Option<Arc<Presence>> = match Presence::new("1470087339639443658") {
             Ok(p) => {
-                println!("Discord presence connected!");
+                tracing::info!("Discord presence connected");
                 Some(Arc::new(p))
             }
             Err(e) => {
-                eprintln!("Failed to connect to Discord: {e}");
+                tracing::warn!("Failed to connect to Discord: {e}");
                 None
             }
         };
@@ -132,7 +154,7 @@ fn main() {
                 let path = std::path::Path::new(&file_path);
 
                 if !path.exists() {
-                    eprintln!("[artwork] File not found: {}", file_path);
+                    tracing::warn!("[artwork] File not found: {}", file_path);
                     return http::Response::builder()
                         .status(404)
                         .body(std::borrow::Cow::from(Vec::new()))
@@ -153,7 +175,7 @@ fn main() {
                         .body(std::borrow::Cow::from(content))
                         .unwrap(),
                     Err(e) => {
-                        eprintln!("[artwork] Failed to read file {}: {}", file_path, e);
+                        tracing::error!("[artwork] Failed to read file {}: {}", file_path, e);
                         http::Response::builder()
                             .status(500)
                             .body(std::borrow::Cow::from(Vec::new()))
@@ -341,7 +363,7 @@ fn App() -> Element {
             spawn(async move {
                 let result = tokio::task::spawn_blocking(move || store_snapshot.save(&path)).await;
                 if let Ok(Err(e)) = result {
-                    eprintln!("Failed to save playlists: {}", e);
+                    tracing::error!("Failed to save playlists: {}", e);
                 }
             });
         }
@@ -363,7 +385,7 @@ fn App() -> Element {
             spawn(async move {
                 let result = tokio::task::spawn_blocking(move || lib_snapshot.save(&path)).await;
                 if let Ok(Err(e)) = result {
-                    eprintln!("Failed to save library: {}", e);
+                    tracing::error!("Failed to save library: {}", e);
                 }
             });
         }
@@ -385,7 +407,7 @@ fn App() -> Element {
             spawn(async move {
                 let result = tokio::task::spawn_blocking(move || store_snapshot.save(&path)).await;
                 if let Ok(Err(e)) = result {
-                    eprintln!("Failed to save favorites: {}", e);
+                    tracing::error!("Failed to save favorites: {}", e);
                 }
             });
         }

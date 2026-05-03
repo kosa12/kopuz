@@ -35,6 +35,9 @@ rand = "0.8"
 web-time = "1.1"
 gloo-timers = { version = "0.3", features = ["futures"] }
 directories = "6.0"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+tracing-appender = "0.2"
 i18n = { path = "./i18n" }
 player = { path = "./player" }
 reader = { path = "./reader" }
