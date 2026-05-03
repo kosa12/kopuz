@@ -195,9 +195,8 @@ pub fn Fullscreen(
         .map(|track| track.duration)
         .sum();
     let up_next_summary = format!(
-        "{} {} • {}",
-        up_next_count,
-        i18n::t("songs"),
+        "{} • {}",
+        i18n::t_with("showcase_song_count", &[("count", up_next_count.to_string())]),
         format_queue_duration(up_next_duration)
     );
 
