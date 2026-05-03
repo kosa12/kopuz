@@ -12,6 +12,7 @@ pub fn ReorderButtons(
     rsx! {
         div { class: "{class}",
             button {
+                disabled: !can_move_up,
                 class: if can_move_up {
                     "p-0.5 text-slate-500 hover:text-white transition-colors"
                 } else {
@@ -26,6 +27,7 @@ pub fn ReorderButtons(
                 i { class: "fa-solid fa-chevron-up {icon_class}" }
             }
             button {
+                disabled: !can_move_down,
                 class: if can_move_down {
                     "p-0.5 text-slate-500 hover:text-white transition-colors"
                 } else {

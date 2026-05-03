@@ -37,8 +37,10 @@ static PRESENCE: std::sync::OnceLock<Option<Arc<Presence>>> = std::sync::OnceLoc
 fn persist_config_snapshot(config_snapshot: config::AppConfig, path: std::path::PathBuf) {
     spawn(async move {
         let result = tokio::task::spawn_blocking(move || config_snapshot.save(&path)).await;
-        if let Ok(Err(e)) = result {
-            eprintln!("Failed to save config: {}", e);
+        match result {
+            Ok(Ok(())) => {}
+            Ok(Err(e)) => eprintln!("Failed to save config: {}", e),
+            Err(e) => eprintln!("Failed to join config save task: {}", e),
         }
     });
 }
