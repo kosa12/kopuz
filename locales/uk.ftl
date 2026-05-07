@@ -1,4 +1,4 @@
-language-name = Українська
+﻿language-name = Українська
 is_rtl = false
 
 settings = Налаштування
@@ -39,6 +39,10 @@ player_settings = Налаштування програвача
 discord_presence = присутність Discord
 reduce_animations = Зменшити кількість анімацій
 show_source_toggle = Показати перемикач джерела
+titlebar_mode = Рядок заголовка
+titlebar_custom = Власний (малює застосунок)
+titlebar_system = Системні прикраси
+titlebar_off = Без рядка заголовка
 volume = Гучність
 local = Локальні
 server = Сервер

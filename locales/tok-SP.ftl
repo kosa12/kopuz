@@ -1,4 +1,4 @@
-language-name = sitelen pona
+﻿language-name = sitelen pona
 is_rtl = false
 
 settings = 󱤿󱤎
@@ -39,6 +39,10 @@ player_settings = 󱤿󱥍󱤎󱤤󱤕
 discord_presence = 󱤬󱥍󱤎󱦐󱥛󱦜󱤜󱦝󱦑
 reduce_animations = 󱥄󱤨󱤉󱥩
 show_source_toggle = 󱥄󱤮󱤉󱤎󱤆
+titlebar_mode = 󱤤󱤎
+titlebar_custom = 󱤤󱥎󱤎
+titlebar_system = 󱤤󱥎󱤎󱥛
+titlebar_off = 󱤤󱤂
 volume = 󱥣󱤕
 local = 󱥧󱤎󱥁
 server = 󱥧󱥌

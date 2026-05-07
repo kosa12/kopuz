@@ -1,4 +1,4 @@
-language-name = Ελληνικά
+﻿language-name = Ελληνικά
 is_rtl = false
 
 settings = Ρυθμίσεις
@@ -39,6 +39,10 @@ player_settings = Ρυθμίσεις Αναπαραγωγής
 discord_presence = Κατάσταση Discord
 reduce_animations = Μείωση κινήσεων
 show_source_toggle = Εμφάνιση διακόπτη πηγής
+titlebar_mode = Γραμμή τίτλου
+titlebar_custom = Προσαρμοσμένο (σχεδιαζόμενο από την εφαρμογή)
+titlebar_system = Διακοσμήσεις συστήματος
+titlebar_off = Χωρίς γραμμή τίτλου
 volume = Ένταση
 local = Τοπικά
 server = Διακομιστής
