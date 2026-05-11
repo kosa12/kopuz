@@ -144,50 +144,6 @@ async fn resolve_via_itunes(
     Ok(None)
 }
 
-#[derive(Debug, Deserialize)]
-struct DeezerSearchResponse {
-    data: Option<Vec<DeezerAlbum>>,
-}
-
-#[derive(Debug, Deserialize)]
-struct DeezerAlbum {
-    cover_xl: Option<String>,
-}
-
-async fn resolve_via_deezer(
-    artist: &str,
-    album: &str,
-) -> Result<Option<String>, Box<dyn std::error::Error + Send + Sync>> {
-    if artist.is_empty() && album.is_empty() {
-        return Ok(None);
-    }
-
-    let query = format!("{} {}", artist, album);
-    let client = build_client()?;
-    let resp = client
-        .get(DEEZER)
-        .query(&[("q", query.as_str()), ("limit", "1")])
-        .send()
-        .await?;
-
-    if !resp.status().is_success() {
-        println!("[cover_art] Deezer returned HTTP {}", resp.status());
-        return Ok(None);
-    }
-
-    let body: DeezerSearchResponse = resp.json().await?;
-    if let Some(data) = body.data {
-        if let Some(album) = data.first() {
-            if let Some(url) = &album.cover_xl {
-                println!("[cover_art] Deezer match -> {}", url);
-                return Ok(Some(url.clone()));
-            }
-        }
-    }
-
-    Ok(None)
-}
-
 async fn verify_cover_exists(
     release_mbid: &str,
 ) -> Result<bool, Box<dyn std::error::Error + Send + Sync>> {
@@ -242,13 +198,6 @@ pub async fn resolve_cover_art_url(
         Ok(Some(url)) => return Some(url),
         Ok(None) => println!("[cover_art] No iTunes match"),
         Err(e) => println!("[cover_art] iTunes error: {}", e),
-    }
-
-    // Fallback: Deezer
-    match resolve_via_deezer(artist, album).await {
-        Ok(Some(url)) => return Some(url),
-        Ok(None) => println!("[cover_art] No Deezer match"),
-        Err(e) => println!("[cover_art] Deezer error: {}", e),
     }
 
     println!(
