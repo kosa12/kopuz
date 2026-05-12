@@ -691,19 +691,13 @@ pub fn JellyfinArtist(
                                     }
                                 },
                                 on_play_all: move |_| {
-                                    let tracks = artist_tracks();
-                                    let is_shuffle = *ctrl.shuffle.peek();
-                                    if is_shuffle {
-                                        let mut shuffled = tracks.clone();
-                                        shuffled.shuffle(&mut rand::thread_rng());
-                                        queue.set(shuffled);
-                                        current_queue_index.set(0);
-                                        ctrl.play_track(0);
-                                    } else {
-                                        queue.set(tracks.clone());
-                                        ctrl.play_track(0);
-                                    }
-                                },
+                                      let is_shuffle = *ctrl.shuffle.peek();
+                                      if is_shuffle {
+                                          ctrl.play_queue_shuffled(artist_tracks());
+                                      } else {
+                                          ctrl.play_queue_linear(artist_tracks());
+                                      }
+                                  },
                                 on_play: move |idx: usize| {
                                     let tracks = artist_tracks();
                                     queue.set(tracks.clone());
