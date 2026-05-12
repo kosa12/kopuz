@@ -596,7 +596,7 @@ fn App() -> Element {
     let mut configured_music_dirs = use_signal(|| config.peek().music_directory.clone());
 
     let is_playing = use_signal(|| false);
-    let is_fullscreen = use_signal(|| false);
+    let mut is_fullscreen = use_signal(|| false);
     let is_rightbar_open = use_signal(|| false);
     let rightbar_width = use_signal(|| 320usize);
     let mut palette = use_signal(|| Option::<Vec<utils::color::Color>>::None);
@@ -1265,7 +1265,9 @@ fn App() -> Element {
             onkeydown: move |evt| {
                 use dioxus::prelude::Key;
                 let key = evt.key();
-                if key == Key::Character(" ".into()) {
+                if key == Key::Escape {
+                    is_fullscreen.set(false);
+                } else if key == Key::Character(" ".into()) {
                     ctrl.toggle();
                 }
             },
