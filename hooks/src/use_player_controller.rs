@@ -1167,13 +1167,22 @@ impl PlayerController {
         }
 
         if let Some(prev_idx) = self.history.with_mut(|h| h.pop()) {
+            if *self.shuffle.peek() {
+                self.shuffle_order.with_mut(|so| so.insert(0, idx));
+            }
             self.play_track_no_history_without_crossfade(prev_idx);
             return;
         }
 
         if idx > 0 {
+            if *self.shuffle.peek() {
+                self.shuffle_order.with_mut(|so| so.insert(0, idx));
+            }
             self.play_track_no_history_without_crossfade(idx - 1);
         } else if *self.loop_mode.peek() == LoopMode::Queue {
+            if *self.shuffle.peek() {
+                self.shuffle_order.with_mut(|so| so.insert(0, idx));
+            }
             self.play_track_no_history_without_crossfade(queue_len - 1);
         }
     }
