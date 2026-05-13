@@ -1274,8 +1274,13 @@ impl PlayerController {
         } else {
             // reset current queue index to match track index when turning off shuffle mode
             let current_idx = *self.current_queue_index.peek();
-            self.current_queue_index
-                .set(self.shuffle_order.peek()[current_idx]);
+            self.current_queue_index.set(
+                *self
+                    .shuffle_order
+                    .peek()
+                    .get(current_idx)
+                    .unwrap_or(&current_idx),
+            );
         }
     }
 

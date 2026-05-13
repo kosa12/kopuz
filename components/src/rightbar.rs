@@ -230,11 +230,15 @@ pub fn Rightbar(
 
     let (back_items, up_next_items): (Vec<_>, Vec<_>) = if is_shuffle {
         let order = ctrl.shuffle_order.read();
-        let back = order[..current_idx]
+        let back = order
+            .get(..current_idx)
+            .unwrap_or_default()
             .iter()
             .filter_map(|&qi| q.get(qi).cloned().map(|t| (qi, t)))
             .collect();
-        let next = order[current_idx + 1..]
+        let next = order
+            .get(..current_idx)
+            .unwrap_or_default()
             .iter()
             .filter_map(|&qi| q.get(qi).cloned().map(|t| (qi, t)))
             .collect();
@@ -388,7 +392,7 @@ pub fn Rightbar(
                         }
                     }
                 } else if *active_tab.read() == 1 {
-                    if current_idx == q.len() - 1 {
+                    if q.is_empty() || current_idx == q.len() - 1 {
                         div { class: "text-white/30 text-center py-10 text-sm", "{i18n::t(\"no_more_songs\")}" }
                     } else {
                         div {
