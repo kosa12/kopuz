@@ -151,42 +151,6 @@ impl PlayerController {
         self.current_song_cover_url.set(String::new());
     }
 
-    fn prefetch_lyrics_for_track(&self, track: &Track) {
-        let track_path = track.path.to_string_lossy();
-        if track.title.trim().is_empty() || track_path.starts_with("radio:") {
-            return;
-        }
-
-        let track = track.clone();
-        let (server_url, server_token, server_user_id) = {
-            let conf = self.config.read();
-            if let Some(server) = &conf.server {
-                (
-                    Some(server.url.clone()),
-                    server.access_token.clone(),
-                    server.user_id.clone(),
-                )
-            } else {
-                (None, None, None)
-            }
-        };
-
-        spawn(async move {
-            let track_path = track.path.to_string_lossy().into_owned();
-            let _ = utils::lyrics::fetch_lyrics(
-                &track.artist,
-                &track.title,
-                &track.album,
-                track.duration,
-                &track_path,
-                server_url.as_deref(),
-                server_token.as_deref(),
-                server_user_id.as_deref(),
-            )
-            .await;
-        });
-    }
-
     fn hydrate_current_track_metadata(&mut self, idx: usize, progress_secs: u64) {
         if let Some(track) = self.current_track(idx) {
             let progress_secs = progress_secs.min(track.duration);
@@ -200,7 +164,6 @@ impl PlayerController {
             self.current_song_progress.set(progress_secs);
             self.current_song_cover_url
                 .set(self.cover_url_for_track(&track));
-            self.prefetch_lyrics_for_track(&track);
         } else {
             self.current_queue_index.set(0);
             self.clear_current_track_metadata();
