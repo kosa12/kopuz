@@ -34,12 +34,5 @@ jobs:
 
       - uses: DeterminateSystems/nix-installer-action@main
 
-      - uses: cachix/cachix-action@v14
-        with:
-          name: kopuz
-          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
-
-      - name: Build package
-        run: |
-          nix build .#packages.${{ matrix.system }}.default
-          cachix push kopuz result
+      - name: Run Nix checks
+        run: nix build .#checks.${{ matrix.system }}.default
