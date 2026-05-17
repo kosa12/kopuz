@@ -10,12 +10,27 @@ def extract-locale-keys [path: path] {
 }
 
 def extract-rust-i18n-usages [repo_root: path] {
-  let pattern = 'i18n::t\("([^"]+)"\)'
+  glob ($repo_root | path join "**" "*.rs")
+  | each {|file|
+      open $file
+      | lines
+      | enumerate
+      | each {|row|
+          let line = ($row.index + 1)
+          let fragments = ($row.item | split row 'i18n::t("' | skip 1)
 
-  ^rg --no-heading --line-number --color never -g '*.rs' $pattern $repo_root
-  | lines
-  | parse -r '^(?<path>.*?):(?<line>\d+):(?<text>.*i18n::t\("(?<key>[^"]+)"\).*)$'
-  | update line {|row| $row.line | into int }
+          $fragments
+          | each {|fragment|
+              {
+                path: ($file | into string)
+                line: $line
+                key: ($fragment | split row '"' | first)
+              }
+            }
+        }
+    }
+  | flatten
+  | flatten
 }
 
 def main [] {
