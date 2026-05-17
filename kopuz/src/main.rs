@@ -15,6 +15,10 @@ use dioxus::desktop::RequestAsyncResponder;
 use dioxus::desktop::tao::dpi::LogicalSize;
 #[cfg(all(not(target_arch = "wasm32"), target_os = "macos"))]
 use dioxus::desktop::tao::platform::macos::WindowBuilderExtMacOS;
+#[cfg(all(not(target_arch = "wasm32"), target_os = "windows"))]
+use dioxus::desktop::tao::platform::windows::WindowExtWindows;
+#[cfg(all(not(target_arch = "wasm32"), target_os = "windows"))]
+use windows::Win32::Foundation::HWND;
 use dioxus::prelude::*;
 #[cfg(not(target_arch = "wasm32"))]
 use discord_presence::Presence;
@@ -32,6 +36,8 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 mod queue_state;
 mod web_storage;
+#[cfg(target_os = "windows")]
+mod windows_titlebar;
 
 #[cfg(not(target_arch = "wasm32"))]
 fn migrate_legacy_locations() {
@@ -942,6 +948,15 @@ fn App() -> Element {
         let mode = config.read().titlebar_mode;
         let win = dioxus::desktop::use_window();
         win.set_decorations(mode == config::TitlebarMode::System);
+    });
+
+    #[cfg(all(not(target_arch = "wasm32"), target_os = "windows"))]
+    use_effect(move || {
+        let mode = config.read().titlebar_mode;
+        let win = dioxus::desktop::use_window();
+        let hwnd = HWND(win.window.hwnd() as _);
+        windows_titlebar::install(hwnd);
+        windows_titlebar::set_custom_titlebar_enabled(mode == config::TitlebarMode::Custom);
     });
 
     use_effect(move || {
